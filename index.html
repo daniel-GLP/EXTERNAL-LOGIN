@@ -55,40 +55,27 @@
   </form>
 
   <script>
-    const SSO_BRIDGE_URL = 'https://glp-api.vercel.app/sso-bridge-v2';
-    const RET_URL = 'https://external-login-zeta.vercel.app'; // destination after login
-
-    function b64url(str) {
-      return btoa(unescape(encodeURIComponent(str)))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
-    }
+    const SSO_BRIDGE_URL = 'http://localhost:5173/sso-bridge-v2';
+    const RET_URL = 'https://external-login-zeta.vercel.app'; // where you want to return post-login
 
     document.getElementById('f').addEventListener('submit', (e) => {
       e.preventDefault();
-      document.getElementById('btn').disabled = true;
-      document.getElementById('err').textContent = '';
-
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
 
       if (!email || !password) {
         document.getElementById('err').textContent = 'Email and password are required.';
-        document.getElementById('btn').disabled = false;
         return;
       }
 
-      const packet = {
+      const query = new URLSearchParams({
         email,
         password,
         ret: RET_URL,
-        ts: Date.now(),
-      };
+        ts: Date.now().toString(),
+      });
 
-      const encoded = b64url(JSON.stringify(packet));
-      const redirectUrl = `${SSO_BRIDGE_URL}#pkt=${encoded}`;
-
+      const redirectUrl = `${SSO_BRIDGE_URL}?${query.toString()}`;
       console.log('[external-login] redirecting to:', redirectUrl);
       window.location.href = redirectUrl;
     });
