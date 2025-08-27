@@ -1,0 +1,142 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Partner Sign In</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto;
+      max-width: 420px;
+      margin: 6rem auto;
+    }
+    label {
+      display: block;
+      margin: 0.5rem 0;
+    }
+    input {
+      width: 100%;
+      padding: 0.6rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      padding: 0.7rem 1rem;
+      border-radius: 10px;
+      border: 0;
+      background: #27c9a9;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button[disabled] {
+      opacity: 0.6;
+      cursor: default;
+    }
+    #err {
+      color: crimson;
+      margin-top: 0.5rem;
+      white-space: pre-wrap;
+    }
+    code {
+      background: #f5f5f5;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Partner Sign In</h1>
+  <!-- <p style="font-size:12px;color:#666">
+    API: <code>http://localhost:5173/api/login/</code> → proxied to your local backend
+  </p> -->
+
+  <form id="f">
+    <label>Email<br><input type="email" id="email" required autocomplete="username"></label>
+    <label>Password<br><input type="password" id="password" required autocomplete="current-password"></label>
+    <button id="btn">Sign in</button>
+    <div id="err"></div>
+  </form>
+
+  <script>
+    // ===== Local test config =====
+    const API_BASE = 'http://localhost:5173';              // your main app’s dev server
+    const SSO_BRIDGE_URL = 'http://localhost:5173/sso-bridge';
+    const API_LOGIN = 'http://127.0.0.1:8000/api/login/';  // your actual backend
+
+    const f = document.getElementById('f');
+    const btn = document.getElementById('btn');
+    const errEl = document.getElementById('err');
+
+    // Moved here to fix ReferenceError
+    function b64url(s) {
+      return btoa(unescape(encodeURIComponent(s)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+    }
+
+    async function tryJson(bodyObj) {
+      const res = await fetch(API_LOGIN, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyObj),
+      });
+      const text = await res.text();
+      let data = null;
+      try { data = JSON.parse(text); } catch {}
+      console.log('[external-login] status=', res.status, 'body=', data || text);
+      return { res, data };
+    }
+
+    async function login(email, password) {
+      // 1) Try with { email, password }
+      let { res, data } = await tryJson({ email, password });
+
+      // 2) Fallback to { username, password }
+      if (!(res.ok && data?.token && data?.id)) {
+        ({ res, data } = await tryJson({ username: email, password }));
+      }
+
+      if (res.ok && data?.token && data?.id) return data;
+
+      throw new Error((data && (data.detail || data.error)) || 'Invalid email or password.');
+    }
+
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errEl.textContent = '';
+      btn.disabled = true;
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      try {
+        const data = await login(email, password);
+
+        const payload = {
+          v: 1,
+          token: String(data.token),
+          id: String(data.id),
+          ts: Date.now(),
+        //   ret: window.location.origin
+          ret: "http://127.0.0.1:5500/external-login.html"
+        };
+
+        const pkt = b64url(JSON.stringify(payload));
+        const url = `${SSO_BRIDGE_URL}#pkt=${pkt}`;
+
+        console.log('[external] redirect ->', url);
+        window.location.href = url;
+
+      } catch (e2) {
+        console.error('[external-login] error', e2);
+        errEl.textContent = e2.message || 'Unable to sign in.';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
