@@ -55,13 +55,11 @@
   </form>
 
   <script>
-    // const SSO_BRIDGE_URL = 'http://localhost:5173/sso-bridge-v3';
-    const SSO_BRIDGE_URL = 'https://glp-api.vercel.app/sso-bridge';
-    const RET_URL = 'https://external-login-zeta.vercel.app';
+    const SSO_BRIDGE_URL = 'https://glp-api.vercel.app/sso-bridge-v2';
+    const RET_URL = 'https://external-login-zeta.vercel.app'; // url where you want to return post-login
 
     document.getElementById('f').addEventListener('submit', (e) => {
       e.preventDefault();
-
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
 
@@ -70,20 +68,14 @@
         return;
       }
 
-      // Build the payload
-      const payload = {
+      const query = new URLSearchParams({
         email,
         password,
         ret: RET_URL,
-        ts: Date.now(),
-      };
+        ts: Date.now().toString(),
+      });
 
-      // Encode payload using Base64
-      const packet = btoa(JSON.stringify(payload));
-
-      // Build redirect URL
-      const redirectUrl = `${SSO_BRIDGE_URL}?packet=${encodeURIComponent(packet)}`;
-
+      const redirectUrl = `${SSO_BRIDGE_URL}?${query.toString()}`;
       console.log('[external-login] redirecting to:', redirectUrl);
       window.location.href = redirectUrl;
     });
